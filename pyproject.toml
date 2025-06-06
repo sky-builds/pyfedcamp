@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "pyfedcamp"
+version = "0.0.1"
+description = "Python client with tools for working with recreation.gov data."
+authors = ["Sky Bristol <skybristol@gmail.com>"]
+readme = "README.md"
+license = "MIT"
+packages = [{include = "pyfedcamp", from = "src"}]
+
+[tool.setuptools.package-data]
+"pyfedcamp" = ["static/*.png"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pandas = "^2.3.0"
+reportlab = "^4.4.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

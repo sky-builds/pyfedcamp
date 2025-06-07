@@ -10,6 +10,7 @@ from reportlab.pdfgen import canvas
 import importlib.resources
 from typing import List, Optional
 from datetime import date
+import calendar
 
 class Reservations:
     def __init__(
@@ -35,6 +36,7 @@ class Reservations:
             raise FileNotFoundError(f"The file {input_file} does not exist.")
         
         self.process_spreadsheet()
+        self.eval_cancellations()
 
         with importlib.resources.path('pyfedcamp.static', 'NPS_logo.png') as logo_path:
             self.logo = str(logo_path)
@@ -94,7 +96,8 @@ class Reservations:
 
         # Set an Arrival Month column for statistical summaries
         self.res_df['Arrival Month'] = self.res_df['Arrival Date'].dt.month
-
+        self.res_df['Arrival Month Text'] = self.res_df['Arrival Month'].apply(lambda m: calendar.month_name[m])
+        
         # Set an obfuscated version of the Reservation Number
         self.res_df['ReservationNumber'] = self.res_df['Reservation #'].apply(lambda x: f"...{str(x)[-6:]}")
 
@@ -113,6 +116,12 @@ class Reservations:
 
         # Ensure "Nights/ Days" is an integer
         self.res_df['Nights/ Days'] = pd.to_numeric(self.res_df['Nights/ Days'], errors='coerce').fillna(0).astype(int)
+
+        # Ensure # of Occupants is an integer for report generation
+        self.res_df['# of Occupants'] = pd.to_numeric(self.res_df['# of Occupants'], errors='coerce').fillna(0).astype(int)
+
+        # Calculate "occupant overnights" as Nights/ Days * # of Occupants
+        self.res_df['Occupant Overnights'] = self.res_df['Nights/ Days'] * self.res_df['# of Occupants']
 
     def placard_records(self):
         mask = (
@@ -233,6 +242,22 @@ class Reservations:
         # Save the canvas
         c.save()
 
+    def eval_cancellations(self):
+        '''
+        Identify cancelled sites with no other active reservations.
+        These need to be further investigated to ensure that they are not active because of a
+        multi-site reservation or some other reason.
+        '''
+        cancelled_sites = self.res_df[
+            self.res_df['Reservation Status'] == 'CANCELLED'
+        ]['Site #'].unique()
+
+        active_status = ['RESERVED', 'CHECKED_IN', 'CHECKED_OUT']
+        active_sites = self.res_df[
+            self.res_df['Reservation Status'].isin(active_status)
+        ]['Site #'].unique()
+
+        self.potential_cancellations = list(set(cancelled_sites) - set(active_sites))
 
 def validate_name_format(name):
     """

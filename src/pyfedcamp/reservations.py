@@ -37,6 +37,7 @@ class Reservations:
         
         self.process_spreadsheet()
         self.eval_cancellations()
+        self.build_summaries()
 
         with importlib.resources.path('pyfedcamp.static', 'NPS_logo.png') as logo_path:
             self.logo = str(logo_path)
@@ -97,6 +98,8 @@ class Reservations:
         # Set an Arrival Month column for statistical summaries
         self.res_df['Arrival Month'] = self.res_df['Arrival Date'].dt.month
         self.res_df['Arrival Month Text'] = self.res_df['Arrival Month'].apply(lambda m: calendar.month_name[m])
+        self.res_df['Arrival Year'] = self.res_df['Arrival Date'].dt.year
+        self.res_df['Arrival MonthYear'] = self.res_df['Arrival Month Text'] + ' ' + self.res_df['Arrival Year'].astype(str)
         
         # Set an obfuscated version of the Reservation Number
         self.res_df['ReservationNumber'] = self.res_df['Reservation #'].apply(lambda x: f"...{str(x)[-6:]}")
@@ -122,6 +125,9 @@ class Reservations:
 
         # Calculate "occupant overnights" as Nights/ Days * # of Occupants
         self.res_df['Occupant Overnights'] = self.res_df['Nights/ Days'] * self.res_df['# of Occupants']
+
+        # Create a column for the reporting category
+        self.res_df['Reporting Category'] = self.res_df.apply(reporting_category, axis=1)
 
     def placard_records(self):
         mask = (
@@ -259,6 +265,25 @@ class Reservations:
 
         self.potential_cancellations = list(set(cancelled_sites) - set(active_sites))
 
+    def build_summaries(self):
+        # Find fully represented months
+        valid_monthyears = []
+        for monthyear, group in self.res_df.groupby('Arrival MonthYear'):
+            # Get year and month from any row in the group
+            year = group['Arrival Year'].iloc[0]
+            month = group['Arrival Month'].iloc[0]
+            first_day = pd.Timestamp(year, month, 1)
+            last_day = pd.Timestamp(year, month, calendar.monthrange(year, month)[1])
+            arrival_dates = pd.to_datetime(group['Arrival Date'].dt.date.unique())
+            if (first_day in arrival_dates.values) and (last_day in arrival_dates.values):
+                valid_monthyears.append(monthyear)
+        # Filter data to only fully represented months
+        filtered_df = self.res_df[self.res_df['Arrival MonthYear'].isin(valid_monthyears)]
+        self.monthly_summary = filtered_df.groupby('Reporting Category').agg({
+            'Nights/ Days': 'sum',
+            'Occupant Overnights': 'sum'
+        }).rename(columns={'Nights/ Days': 'Site Overnights'})
+
 def validate_name_format(name):
     """
     Validates that the name follows the obfuscated format: 'L............, F.....'.
@@ -267,3 +292,14 @@ def validate_name_format(name):
     import re
     pattern = r"^[A-Za-z]+\.*?, [A-Za-z]\.*$"
     return bool(re.match(pattern, name))
+
+def reporting_category(row):
+    if row['Reservation Status'] in ['RESERVED', 'CHECKED_IN', 'CHECKED_OUT']:
+        cat = row['Arrival MonthYear'] + ' - ' + row['Camper Footprint']
+        if row['observed']:
+            cat += ' - Observed'
+        else:
+            cat += ' - Not Observed'
+        return cat
+    else:
+        return None

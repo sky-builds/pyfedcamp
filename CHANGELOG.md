@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.3] - 2025-06-08
+### Added
+- Added columns to the Camping Reservation Detail Report for Arrival Year and Arrival MonthYear to facilitate additional reporting
+- Added column for "Reporting Category" that puts together the Arrival MonthYear with the Camper Footprint and whether the site was observed or not by staff
+- Added the build_summaries function to build a monthly summary data frame using reporting category and summing both Site Overnights and Occupant Overnights. This only operates on reservations with status in RESERVED, CHECKED_IN, or CHECKED_OUT. It also only operates on Month/Year when we have a full month's data represented in the spreadsheet.
+
+### Changed
+- N/A
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- N/A
+
+### Security
+- N/A
+
 ## [0.0.2] - 2025-06-07
 ### Added
 - Function to evaluate cancellations, identifying potentially cancelled sites for further investigation. Reservations class yields potential_cancellations list.

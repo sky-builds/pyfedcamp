@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyfedcamp"
-version = "0.0.3"
+version = "0.0.4"
 description = "Python client with tools for working with recreation.gov data."
 authors = ["Sky Bristol <skybristol@gmail.com>"]
 readme = "README.md"

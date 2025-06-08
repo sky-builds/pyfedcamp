@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.4] - 2025-06-08
+### Added
+- N/A
+
+### Changed
+- N/A
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- Fixed bug where an error was referencing an older variable name - arrival_date vs. arrival_dates
+
+### Security
+- N/A
+
 ## [0.0.3] - 2025-06-08
 ### Added
 - Added columns to the Camping Reservation Detail Report for Arrival Year and Arrival MonthYear to facilitate additional reporting

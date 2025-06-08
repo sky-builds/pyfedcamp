@@ -45,7 +45,7 @@ class Reservations:
         if create_placards:
             self.placard_records()
             if self.placards_df.empty:
-                raise ValueError(f"No records found for the specified arrival date - {self.arrival_date}. Cannot create placards.")
+                raise ValueError(f"No records found for the specified arrival date(s). Cannot create placards.")
             
             self.build_placards()
 

@@ -17,6 +17,7 @@ class Reservations:
             self, 
             input_file: str, 
             output_dir: str = '.', 
+            agency: str = 'NPS',
             placards_filename: str = 'placards.pdf',
             create_placards: bool = False,
             arrival_dates: Optional[List[date]] = None,
@@ -36,10 +37,15 @@ class Reservations:
             raise FileNotFoundError(f"The file {input_file} does not exist.")
         
         self.process_spreadsheet()
-        self.eval_cancellations()
-        self.build_summaries()
+        self.get_occupied_reservations()
+        self.get_occupied_overnights()
 
-        with importlib.resources.path('pyfedcamp.static', 'NPS_logo.png') as logo_path:
+        self.site_summary()
+        self.occupant_summary()
+        self.build_weekly_summary()
+        self.identify_busiest_days()
+
+        with importlib.resources.path('pyfedcamp.static', f'{agency}_logo.png') as logo_path:
             self.logo = str(logo_path)
 
         if create_placards:
@@ -128,6 +134,133 @@ class Reservations:
 
         # Create a column for the reporting category
         self.res_df['Reporting Category'] = self.res_df.apply(reporting_category, axis=1)
+
+    def get_occupied_reservations(self):
+        self.occupied_reservations = self.res_df[
+            self.res_df['Reservation Status'].isin(
+                [
+                    'RESERVED',
+                    'CHECKED_IN',
+                    'CHECKED_OUT'
+                ]
+            )
+        ].reset_index(drop=True)
+
+    def get_occupied_overnights(self):
+        overnight_expanded = []
+        for idx, row in self.occupied_reservations.iterrows():
+            # Create a unique reservation ID (customize as needed for uniqueness)
+            reservation_id = row.get('Reservation #', idx)  # Use a real unique field if available
+            nights = (row['Departure Date'] - row['Arrival Date']).days
+            for night_num, single_date in enumerate(pd.date_range(row['Arrival Date'], row['Departure Date'] - pd.Timedelta(days=1)), start=1):
+                overnight_expanded.append({
+                    'date': single_date,
+                    'overnight_occupants': row['Occupant Overnights'] if 'Occupant Overnights' in row else row['# of Occupants'],
+                    'footprint': row['Camper Footprint'],
+                    'reservation_id': reservation_id,
+                    'night_number': night_num,
+                    'total_nights': nights
+                })
+
+        self.occupied_overnights = pd.DataFrame(overnight_expanded)
+        self.occupied_overnights['year'] = self.occupied_overnights['date'].dt.year
+        self.occupied_overnights['week'] = self.occupied_overnights['date'].dt.isocalendar().week
+        self.occupied_overnights['month'] = self.occupied_overnights['date'].dt.month_name()
+        self.occupied_overnights['day'] = self.occupied_overnights['date'].dt.day_name()
+
+        self.first_nights = self.occupied_overnights[
+            (self.occupied_overnights['night_number'] == 1)
+            & 
+            (self.occupied_overnights['total_nights'] > 1)
+        ]
+    
+        self.single_nights = self.occupied_overnights[
+            (self.occupied_overnights['night_number'] == 1)
+            & 
+            (self.occupied_overnights['total_nights'] == 1)
+        ]
+
+    def site_summary(self):
+        self.sites_per_night = (
+            self.occupied_overnights.groupby(['date', 'year', 'month', 'week', 'day', 'footprint'])
+            .size()
+            .unstack(fill_value=0)
+            .reset_index()
+        )
+
+    def occupant_summary(self):
+        self.occupants_per_night = (
+            self.occupied_overnights.groupby(['date', 'year', 'month', 'week', 'day', 'footprint'])['overnight_occupants']
+            .sum()
+            .unstack(fill_value=0)
+            .reset_index()
+        )
+
+    def build_weekly_summary(self):
+        # Group both single_nights and first_nights by year, week, and day of week, summing overnight_occupants
+        single_night_summary = (
+            self.single_nights.groupby(['year', 'week', 'day'])
+            .agg({'overnight_occupants': 'sum'})
+            .rename(columns={'overnight_occupants': 'single_night_occupants'})
+            .reset_index()
+        )
+
+        first_night_summary = (
+            self.first_nights.groupby(['year', 'week', 'day'])
+            .agg({'overnight_occupants': 'sum'})
+            .rename(columns={'overnight_occupants': 'first_night_occupants'})
+            .reset_index()
+        )
+
+        # Merge the first/single summaries on year, week, and day
+        self.weekly_occupants = pd.merge(
+            single_night_summary,
+            first_night_summary,
+            on=['year', 'week', 'day'],
+            how='outer'
+        ).fillna(0)
+
+        # Build in a sum of total occupants
+        total_occupants_summary = (
+            self.occupied_overnights.groupby(['year', 'week', 'day'])
+            .agg({'overnight_occupants': 'sum'})
+            .rename(columns={'overnight_occupants': 'total_occupants'})
+            .reset_index()
+        )
+
+        # Merge total_occupants into weekly_occupants
+        self.weekly_occupants = pd.merge(
+            self.weekly_occupants,
+            total_occupants_summary,
+            on=['year', 'week', 'day'],
+            how='outer'
+        ).fillna(0)
+
+        # Convert occupant counts to integers
+        self.weekly_occupants['single_night_occupants'] = self.weekly_occupants['single_night_occupants'].astype(int)
+        self.weekly_occupants['first_night_occupants'] = self.weekly_occupants['first_night_occupants'].astype(int)
+        self.weekly_occupants['total_occupants'] = self.weekly_occupants['total_occupants'].astype(int)
+
+        # Add first_single_night_occupants column
+        self.weekly_occupants['first_single_night_occupants'] = (
+            self.weekly_occupants['single_night_occupants'] + self.weekly_occupants['first_night_occupants']
+        )
+
+        # Sort for readability
+        self.weekly_occupants.sort_values(['year', 'week', 'day'], inplace=True)
+
+    def identify_busiest_days(self, weight=2):
+        # Compute a weighted score
+        self.weekly_occupants['weighted_occupants'] = (
+            self.weekly_occupants['total_occupants'] + 
+            weight * self.weekly_occupants['first_single_night_occupants']
+        )
+
+        # Find the day with the highest weighted occupants for each week
+        idx = self.weekly_occupants.groupby('week')['weighted_occupants'].idxmax()
+        self.busiest_days = self.weekly_occupants.loc[idx, ['week', 'day', 'total_occupants', 'first_single_night_occupants', 'weighted_occupants']]
+
+        self.busiest_days.reset_index(drop=True, inplace=True)
 
     def placard_records(self):
         mask = (
@@ -248,41 +381,6 @@ class Reservations:
         # Save the canvas
         c.save()
 
-    def eval_cancellations(self):
-        '''
-        Identify cancelled sites with no other active reservations.
-        These need to be further investigated to ensure that they are not active because of a
-        multi-site reservation or some other reason.
-        '''
-        cancelled_sites = self.res_df[
-            self.res_df['Reservation Status'] == 'CANCELLED'
-        ]['Site #'].unique()
-
-        active_status = ['RESERVED', 'CHECKED_IN', 'CHECKED_OUT']
-        active_sites = self.res_df[
-            self.res_df['Reservation Status'].isin(active_status)
-        ]['Site #'].unique()
-
-        self.potential_cancellations = list(set(cancelled_sites) - set(active_sites))
-
-    def build_summaries(self):
-        # Find fully represented months
-        valid_monthyears = []
-        for monthyear, group in self.res_df.groupby('Arrival MonthYear'):
-            # Get year and month from any row in the group
-            year = group['Arrival Year'].iloc[0]
-            month = group['Arrival Month'].iloc[0]
-            first_day = pd.Timestamp(year, month, 1)
-            last_day = pd.Timestamp(year, month, calendar.monthrange(year, month)[1])
-            arrival_dates = pd.to_datetime(group['Arrival Date'].dt.date.unique())
-            if (first_day in arrival_dates.values) and (last_day in arrival_dates.values):
-                valid_monthyears.append(monthyear)
-        # Filter data to only fully represented months
-        filtered_df = self.res_df[self.res_df['Arrival MonthYear'].isin(valid_monthyears)]
-        self.monthly_summary = filtered_df.groupby('Reporting Category').agg({
-            'Nights/ Days': 'sum',
-            'Occupant Overnights': 'sum'
-        }).rename(columns={'Nights/ Days': 'Site Overnights'})
 
 def validate_name_format(name):
     """

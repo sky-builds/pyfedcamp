@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.6] - 2025-07-04
+### Added
+- Number of occupants in a site from the reservation added to placards
+- Daily reservation summary showing total sites/occupants, sites by type (RV or tent), and occupants by duration (single night, first night, continuing night)
+- From weekly summary, a busiest_days dataframe is built showing the day or each week in the input spreadsheet with the highest number of occupants, weighting higher the first-/single-night occupants
+
+### Changed
+- build_placards() now a stand-alone function invoked separate from running the class; takes placard_records as a list of dicts with optional filename and output_path; without filename provided, function will return bytes object
+- CLI updated to include check-in placard generation capability
+
+### Deprecated
+- N/A
+
+### Removed
+- Older weekly summary and other summarization functions
+
+### Fixed
+- N/A
+
+### Security
+- N/A
+
 ## [0.0.5] - 2025-07-01
 ### Added
 - Command line functionality

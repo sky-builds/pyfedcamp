@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.7] - 2025-07-04
+### Added
+- build_download_package() function added to Reservations class to output derived CSV files built from the Camping Reservation Detail Report input spreadsheet into a compressed file
+- download-data command added to CLI to process an input file and download derivatives
+
+### Changed
+- Updated README with more accurate and complete documentation
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- N/A
+
+### Security
+- N/A
+
 ## [0.0.6] - 2025-07-04
 ### Added
 - Number of occupants in a site from the reservation added to placards
@@ -104,7 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - N/A
 
 ### Fixed
-- N/A
+- Fixed error in the process_spreadsheet function where the CheckInTag boolean value was not considering Reservation Status == 'RESERVED'
 
 ### Security
 - N/A

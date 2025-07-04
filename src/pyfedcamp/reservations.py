@@ -12,24 +12,16 @@ from typing import List, Optional
 from datetime import date, datetime
 import calendar
 import io
+import zipfile
+import tarfile
+import tempfile
 
 class Reservations:
     def __init__(
             self, 
-            input_file: str, 
-            agency: str = 'NPS',
-            arrival_dates: Optional[List[date]] = None,
-            fed_unit: str = 'Black Canyon of the Gunnison National Park',
-            campground: str = 'South Rim Campground',
-            camp_host_site: str = 'A33',
-            campsites: Optional[List[str]] = []
+            input_file: str
         ):
         self.input_file = input_file
-        self.arrival_dates = arrival_dates if arrival_dates is not None else [date.today()]
-        self.fed_unit = fed_unit
-        self.campground = campground
-        self.camp_host_site = camp_host_site
-        self.campsites = campsites
 
         if not os.path.exists(input_file):
             raise FileNotFoundError(f"The file {input_file} does not exist.")
@@ -38,9 +30,6 @@ class Reservations:
         self.get_occupied_overnights()
         self.summarize_reservations()
         self.busiest_day_of_week()
-
-        with importlib.resources.path('pyfedcamp.static', f'{agency}_logo.png') as logo_path:
-            self.logo = str(logo_path)
 
     def process_spreadsheet(self):
         import warnings
@@ -94,7 +83,7 @@ class Reservations:
             df[col.replace(" ", "")] = df[col].dt.strftime('%m/%d')
 
         today = pd.to_datetime(datetime.today().date())
-        df['CheckInTag'] = df['Arrival Date'].apply(lambda x: x >= today)
+        df['CheckInTag'] = df.apply(lambda row: (row['Arrival Date'] >= today) and (row['Reservation Status'] == 'RESERVED'), axis=1)
 
         # Set an obfuscated version of the Reservation Number
         df['ReservationNumber'] = df['Reservation #'].apply(lambda x: f"...{str(x)[-6:]}")
@@ -208,7 +197,11 @@ class Reservations:
             placard_records: Optional[List[dict]] = None,
             campsites: Optional[List[str]] = None,
             filename: Optional[str] = None, 
-            output_path: str = '.'
+            output_path: str = '.',
+            agency: str = 'NPS',
+            fed_unit: str = 'Black Canyon of the Gunnison National Park',
+            campground: str = 'South Rim Campground',
+            camp_host_site: str = 'A33'
         ):
         # Handle the case where placard_records is not provided
         if placard_records is None:
@@ -242,6 +235,9 @@ class Reservations:
         info_box_height = 100
         info_box_width = placard_width / 3
 
+        with importlib.resources.path('pyfedcamp.static', f'{agency}_logo.png') as logo_path:
+            logo = str(logo_path)
+
         if filename is None:
             buffer = io.BytesIO()
             c = canvas.Canvas(buffer, pagesize=landscape((canvas_width, canvas_height)))
@@ -266,14 +262,14 @@ class Reservations:
             c.rect(x_offset, y_offset, placard_width, placard_height, stroke=1, fill=0)
 
             # Draw the logo
-            c.drawImage(self.logo, x=x_offset + margin_width, y=y_offset + placard_height - logo_height - margin_width - 30, width=logo_width, height=logo_height)
+            c.drawImage(logo, x=x_offset + margin_width, y=y_offset + placard_height - logo_height - margin_width - 30, width=logo_width, height=logo_height)
 
             # Add text content
             title_box = c.beginText()
             title_box.setTextOrigin(x_offset + margin_width + logo_width + 10, y_offset + placard_height - 60)
             title_box.setFont("Helvetica", 12)
-            title_box.textLine(self.fed_unit)
-            title_box.textLine(self.campground)
+            title_box.textLine(fed_unit)
+            title_box.textLine(campground)
             title_box.textLine("")
             title_box.setFont("Helvetica-Bold", 18)
             title_box.textLine("RESERVED SITE")
@@ -324,8 +320,8 @@ class Reservations:
             help_box = c.beginText()
             help_box.setTextOrigin(x_offset + margin_width, y_offset + margin_width + 40)
             help_box.setFont("Helvetica", 8)
-            if self.camp_host_site:
-                help_box.textLine(f"For immediate assistance: contact camp host in site {self.camp_host_site}")
+            if camp_host_site:
+                help_box.textLine(f"For immediate assistance: contact camp host in site {camp_host_site}")
             help_box.textLine("For reservations: www.recreation.gov or call 1-877-444-6777")
             help_box.textLine("Placard printed: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
             c.drawText(help_box)
@@ -346,12 +342,13 @@ class Reservations:
             buffer.seek(0)
             return buffer.getvalue()
 
-    def busiest_day_of_week(self):
-        # 1. Define weights and calculate weighted occupants
-        WEIGHT_FIRST = 2
-        WEIGHT_SINGLE = 2
-        WEIGHT_CONTINUING = 1
-
+    def busiest_day_of_week(
+            self,
+            WEIGHT_FIRST: int = 3,
+            WEIGHT_SINGLE: int = 2,
+            WEIGHT_CONTINUING: int = 1
+        ):
+        # 1. Calculate weighted occupants
         df = self.daily_reservation_summary.copy()
         df['weighted_occupants'] = (
             WEIGHT_FIRST * df.get('first_night_occupants', 0) +
@@ -364,6 +361,61 @@ class Reservations:
         busiest_days = df.loc[busiest_idx, ['week', 'Occupied Date', 'day', 'total_occupants', 'first_night_occupants', 'single_night_occupants', 'continuing_night_occupants', 'weighted_occupants']]
         self.busiest_days = busiest_days.sort_values('week').reset_index(drop=True)
 
+    def build_download_package(
+        self,
+        format: str = "zip",
+        output_path: str = "."
+    ):
+        """
+        Package major DataFrames as CSV files into a zip or tar.gz archive.
+        If output_path is None, returns bytes; else writes to output_path.
+        """
+        # DataFrames to include
+        dfs = {
+            "reservations.csv": self.reservations,
+            "occupied_reservations_by_day.csv": self.occupied_reservations_by_day,
+            "daily_reservation_summary.csv": self.daily_reservation_summary,
+        }
+        if hasattr(self, "busiest_days"):
+            dfs["busiest_days.csv"] = self.busiest_days
+
+        # Use a temp directory for CSVs
+        with tempfile.TemporaryDirectory() as tmpdir:
+            csv_paths = []
+            for fname, df in dfs.items():
+                csv_path = os.path.join(tmpdir, fname)
+                df.to_csv(csv_path, index=False)
+                csv_paths.append((fname, csv_path))
+
+            # Prepare archive in memory or on disk
+            if output_path is None:
+                buffer = io.BytesIO()
+                if format == "zip":
+                    with zipfile.ZipFile(buffer, "w") as zf:
+                        for fname, path in csv_paths:
+                            zf.write(path, arcname=fname)
+                elif format in ("tar", "tgz", "tar.gz"):
+                    mode = "w:gz" if format in ("tgz", "tar.gz") else "w"
+                    with tarfile.open(fileobj=buffer, mode=mode) as tf:
+                        for fname, path in csv_paths:
+                            tf.add(path, arcname=fname)
+                else:
+                    raise ValueError("Unsupported format. Use 'zip' or 'tar.gz'.")
+                buffer.seek(0)
+                return buffer.getvalue()
+            else:
+                if format == "zip":
+                    with zipfile.ZipFile(output_path, "w") as zf:
+                        for fname, path in csv_paths:
+                            zf.write(path, arcname=fname)
+                elif format in ("tar", "tgz", "tar.gz"):
+                    mode = "w:gz" if format in ("tgz", "tar.gz") else "w"
+                    with tarfile.open(output_path, mode=mode) as tf:
+                        for fname, path in csv_paths:
+                            tf.add(path, arcname=fname)
+                else:
+                    raise ValueError("Unsupported format. Use 'zip' or 'tar.gz'.")
+                return output_path
 
 def validate_name_format(name):
     """

@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.8] - 2025-07-07
+### Added
+- Separate placards module with the build_placards function
+
+### Changed
+- build_placards function moved to separate placards module
+- build_placards must receive a list of dictionaries containing the reservations/sites to be laid out and printed
+
+### Deprecated
+- N/A
+
+### Removed
+- feature to run build_placards from the Reservations class is no longer in place; build_placards must be called separately with a list of dictionaries
+
+### Fixed
+- N/A
+
+### Security
+- N/A
+
 ## [0.0.7] - 2025-07-04
 ### Added
 - build_download_package() function added to Reservations class to output derived CSV files built from the Camping Reservation Detail Report input spreadsheet into a compressed file

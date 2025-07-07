@@ -1,5 +1,6 @@
 import argparse
 from pyfedcamp.reservations import Reservations
+from pyfedcamp.placards import build_placards
 import sys
 
 def main():
@@ -11,7 +12,6 @@ def main():
     placards_parser.add_argument("input_file", help="Path to the Camping Reservation Detail Report spreadsheet (Excel file)")
     placards_parser.add_argument("--output_path", default=".", help="Directory for output files")
     placards_parser.add_argument("--filename", required=True, help="Filename for the generated placards PDF")
-    placards_parser.add_argument("--campsites", nargs="*", default=None, help="List of specific campsites to include", type=str)
     placards_parser.add_argument("--agency", default="NPS", help="U.S. Federal agency operating the campground", type=str)
     placards_parser.add_argument("--fed_unit", default="Black Canyon of the Gunnison National Park", type=str)
     placards_parser.add_argument("--campground", default="South Rim Campground", type=str)
@@ -33,16 +33,29 @@ def main():
 
     if args.command == "placards":
         res = Reservations(input_file=args.input_file)
-        res.build_placards(
+        placard_records_df = res.reservations[res.reservations['CheckInTag']][
+            [
+                'ReservationNumber',
+                'SiteNumber',
+                'ArrivalDate',
+                'DepartureDate',
+                'Primary Occupant Name',
+                'Occupants'
+            ]
+        ]
+        if placard_records_df.empty:
+            print("No reservations found with current/future arrival dates. No placards will be generated.")
+            return
+        build_placards(
+            placard_records=placard_records_df.to_dict(orient='records'),
             output_path=args.output_path,
-            filename=args.placards_filename,
-            campsites=args.campsites,
+            filename=args.filename,
             agency=args.agency,
             fed_unit=args.fed_unit,
             campground=args.campground,
             camp_host_site=args.camp_host_site
         )
-        print(f"Placards generated and saved to {args.output_path}/{args.placards_filename}")
+        print(f"Placards generated and saved to {args.output_path}/{args.filename}")
 
     elif args.command == "reports":
         res = Reservations(input_file=args.input_file)

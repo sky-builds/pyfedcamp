@@ -9,6 +9,7 @@ packages = [{include = "pyfedcamp", from = "src"}]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
+pytest-cov = "^6.2.1"
 
 [tool.setuptools.package-data]
 "pyfedcamp" = ["static/*.png"]

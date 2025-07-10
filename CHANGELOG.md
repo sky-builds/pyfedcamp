@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.9] - 2025-07-08
+### Added
+- Extracted location and run_date metadata properties from Camping Reservation Detail Report spreadsheet header (initial rows) content
+- Added location parameter to build_placards function; if supplied, this value (which can come from Reservations().location) will be used in place of fed_unit and campground.
+- Added tests for the Reservations class and standalone build_placards function; includes sample Camping Reservation Detail Excel file
+- Added GitHub action to run tests
+
+### Changed
+- N/A
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- N/A
+
+### Security
+- N/A
+
 ## [0.0.8] - 2025-07-07
 ### Added
 - Separate placards module with the build_placards function

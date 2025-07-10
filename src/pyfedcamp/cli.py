@@ -8,14 +8,56 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # Placards subcommand
-    placards_parser = subparsers.add_parser("placards", help="Generate placards PDF")
-    placards_parser.add_argument("input_file", help="Path to the Camping Reservation Detail Report spreadsheet (Excel file)")
-    placards_parser.add_argument("--output_path", default=".", help="Directory for output files")
-    placards_parser.add_argument("--filename", required=True, help="Filename for the generated placards PDF")
-    placards_parser.add_argument("--agency", default="NPS", help="U.S. Federal agency operating the campground", type=str)
-    placards_parser.add_argument("--fed_unit", default="Black Canyon of the Gunnison National Park", type=str)
-    placards_parser.add_argument("--campground", default="South Rim Campground", type=str)
-    placards_parser.add_argument("--camp_host_site", default="A33", type=str)
+    placards_parser = subparsers.add_parser(
+        "placards", 
+        help="Generate placards PDF"
+    )
+    placards_parser.add_argument(
+        "input_file", 
+        help="Path to the Camping Reservation Detail Report spreadsheet (Excel file)",
+        type=str
+    )
+    placards_parser.add_argument(
+        "--output_path", 
+        default=".", 
+        help="Directory for output files",
+        type=str
+    )
+    placards_parser.add_argument(
+        "--filename", 
+        required=True, 
+        help="Filename for the generated placards PDF",
+        type=str
+    )
+    placards_parser.add_argument(
+        "--agency", 
+        default="NPS", 
+        help="U.S. Federal agency operating the campground; this will be used to select the logo image", 
+        type=str
+    )
+    placards_parser.add_argument(
+        "--fed_unit", 
+        default="Black Canyon of the Gunnison National Park", 
+        help="Federal unit name for display on placards", 
+        type=str
+    )
+    placards_parser.add_argument(
+        "--campground", 
+        default="South Rim Campground", 
+        help="Campground name for display on placards",
+        type=str
+    )
+    placards_parser.add_argument(
+        "--camp_host_site", 
+        default="A33", 
+        help="Camp host site number for contact information on placards",
+        type=str
+    )
+    placards_parser.add_argument(
+        "--location", 
+        help="Location string used in place of fed_unit and campground",
+        type=str
+    )
 
     # Reports subcommand
     report_parser = subparsers.add_parser("reports", help="Generate summary report")

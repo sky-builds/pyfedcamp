@@ -69,3 +69,6 @@ poetry.lock
 
 # MacOS
 .DS_Store
+
+# Disallow .venv environments
+.venv/

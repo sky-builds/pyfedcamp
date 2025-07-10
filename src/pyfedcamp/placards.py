@@ -13,7 +13,8 @@ def build_placards(
         agency: str = 'NPS',
         fed_unit: str = 'Black Canyon of the Gunnison National Park',
         campground: str = 'South Rim Campground',
-        camp_host_site: str = 'A33'
+        camp_host_site: str = 'A33',
+        location: Optional[str] = None
     ):
     # Set canvas size to 8.5x11 inches in landscape orientation (792x612 points)
     canvas_width = 792
@@ -62,8 +63,11 @@ def build_placards(
         title_box = c.beginText()
         title_box.setTextOrigin(x_offset + margin_width + logo_width + 10, y_offset + placard_height - 60)
         title_box.setFont("Helvetica", 12)
-        title_box.textLine(fed_unit)
-        title_box.textLine(campground)
+        if location:
+            title_box.textLine(location)
+        else:
+            title_box.textLine(fed_unit)
+            title_box.textLine(campground)
         title_box.textLine("")
         title_box.setFont("Helvetica-Bold", 18)
         title_box.textLine("RESERVED SITE")

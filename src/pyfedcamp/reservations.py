@@ -10,6 +10,8 @@ import io
 import zipfile
 import tarfile
 import tempfile
+import re
+import dateutil.parser
 
 class Reservations:
     def __init__(
@@ -34,6 +36,26 @@ class Reservations:
             df = pd.read_excel(self.input_file, engine='openpyxl', header=None)
         except Exception as e:
             raise ValueError(f"Error reading the Excel file: {e}")
+
+        # --- Extract Location and Run Date/Time from the first few rows ---
+        self.location = None
+        self.run_date = None
+        for i in range(min(10, len(df))):
+            row = df.iloc[i].astype(str)
+            first_cell = row.iloc[0]
+            if first_cell.startswith("Location:"):
+                self.location = first_cell.replace("Location:", "").strip()
+            elif first_cell.startswith("Run Date and Time:"):
+                # e.g., "Run Date and Time: Jul 07, 2025, 08:08:00 US/Mountain"
+                match = re.search(r"Run Date and Time:\s*(.+)", first_cell)
+                if match:
+                    date_str = match.group(1)
+                    date_str_parts = date_str.rsplit(' ', 1)
+                    if len(date_str_parts) == 2:
+                        self.run_date = datetime.strptime(date_str_parts[0], '%b %d, %Y, %H:%M:%S')
+                        self.run_date_tz = date_str_parts[1]
+                    else:
+                        self.run_date = date_str
 
         required_columns = [
             'Loop',

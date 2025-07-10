@@ -67,6 +67,7 @@ pyfedcamp placards <input_file> --filename <output.pdf> [options]
 | `--fed_unit`        | No       | `Black Canyon of the Gunnison National Park` | Federal unit name                                     |
 | `--campground`      | No       | `South Rim Campground`                    | Campground name                                           |
 | `--camp_host_site`  | No       | `A33`                                     | Camp host site number                                     |
+| `--location`  | No       | None                                     | Location string used in place of fed_unit and campground                                     |
 
 **Example:**
 ```sh

@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/sky-builds/pyfedcamp/branch/main/graph/badge.svg)](https://codecov.io/gh/sky-builds/pyfedcamp)
+
 # pyFedCamp
 This package works with data from the recreation.gov system for camping reservations on U.S. Federal lands. It makes up for a number of things not covered in "The Hub" (the system used for managing reservations and campground operations). In the current version of the toolset, the only input file processed is the Camping Reservation Detail Report (the one with obfuscated Personally Identifiable Information). The Reservations class validates the structure of the file by checking for the required column headings (located in the spreadsheet after some header information) and the necessary obfuscation on PII in Primary Occupant Names. If the rec.gov folks change the file structure, as they did on the equipment list in 2024, that may trigger the need for an upgrade to this package to account for the changes.
 
